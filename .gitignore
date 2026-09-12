@@ -1,0 +1,18 @@
+node_modules/
+.next/
+out/
+build/
+
+# Fetched Atlas columns, kept only to make local rebuilds quick.
+# See ATLAS_CACHE in scripts/build-data.ts.
+.cache/
+next-env.d.ts
+tsconfig.tsbuildinfo
+.env*
+!.env.example
+
+# NOTE: public/data is deliberately NOT ignored. The reduced coordinates are
+# small, and archived snapshots are the point — v3 scrubs through them.
+
+# Planning notes, not part of the shipped app
+PLAN.md

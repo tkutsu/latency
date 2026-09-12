@@ -1,0 +1,70 @@
+name: Build and deploy
+
+on:
+  push:
+    branches: [main]
+  # Weekly. Topology drifts slowly — new cables and peering changes show up
+  # over months, not hours — and a rebuild reads several hundred megabytes off
+  # RIPE Atlas, so asking more often would cost them more than it tells anyone.
+  #
+  # Each run archives its own snapshot under public/data/snapshots rather than
+  # overwriting, because the interesting mode is the map changing shape over
+  # time and the raw mesh cannot be read retrospectively.
+  #
+  # GitHub disables scheduled workflows after 60 days without repo activity;
+  # re-enable from the Actions tab if the map ever goes stale.
+  schedule:
+    - cron: "23 5 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint && pnpm typecheck && pnpm test
+      # Reads the Atlas mesh into public/data, then exports to out/.
+      # The site is served from a domain root, so no basePath is needed.
+      - run: pnpm build
+
+      # The snapshot is committed, not just deployed: it is the archive the
+      # time slider will read, and it cannot be rebuilt after the fact.
+      - name: Commit the snapshot
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public/data
+          git diff --staged --quiet || git commit -m "Add snapshot $(date -u +%Y-%m-%d)"
+          git push
+
+      - uses: actions/configure-pages@v5
+        with:
+          enablement: true
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: out
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
