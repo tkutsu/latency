@@ -22,6 +22,10 @@ export function useMorph(): {
 } {
   const [morph, setMorphState] = useState(0);
   const [playing, setPlaying] = useState(false);
+  // The animation reads the current value every frame, and reading it from
+  // state inside the loop would mean either a stale closure or restarting the
+  // loop on every frame. The ref is the loop's copy; state is the render's.
+  const current = useRef(0);
   // True for the intro only: the sweep parks at latency space instead of
   // bouncing back.
   const stopAtEnd = useRef(true);
@@ -43,24 +47,25 @@ export function useMorph(): {
     let last = performance.now();
 
     const step = (now: number) => {
-      const delta = (now - last) / 1000;
+      const elapsed = (now - last) / 1000;
       last = now;
-      setMorphState((current) => {
-        let next = current + (delta / SWEEP_SECONDS) * direction.current;
-        if (next >= 1) {
-          next = 1;
-          if (stopAtEnd.current) {
-            stopAtEnd.current = false;
-            setPlaying(false);
-          } else {
-            direction.current = -1;
-          }
-        } else if (next <= 0) {
-          next = 0;
-          direction.current = 1;
+
+      let next = current.current + (elapsed / SWEEP_SECONDS) * direction.current;
+      if (next >= 1) {
+        next = 1;
+        if (stopAtEnd.current) {
+          stopAtEnd.current = false;
+          setPlaying(false);
+        } else {
+          direction.current = -1;
         }
-        return next;
-      });
+      } else if (next <= 0) {
+        next = 0;
+        direction.current = 1;
+      }
+
+      current.current = next;
+      setMorphState(next);
       frame = requestAnimationFrame(step);
     };
 
@@ -71,6 +76,7 @@ export function useMorph(): {
   const setMorph = useCallback((value: number) => {
     stopAtEnd.current = false;
     setPlaying(false);
+    current.current = value;
     setMorphState(value);
   }, []);
 
