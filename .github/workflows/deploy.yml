@@ -44,6 +44,11 @@ jobs:
 
       # The snapshot is committed, not just deployed: it is the archive the
       # time slider will read, and it cannot be rebuilt after the fact.
+      #
+      # This push does not start another run, because GitHub does not raise
+      # workflow events for pushes made with GITHUB_TOKEN. Swap in a personal
+      # access token and it will — every rebuild writes a fresh observedAt, so
+      # there is always a diff to commit — so add [skip ci] if you ever do.
       - name: Commit the snapshot
         run: |
           git config user.name "github-actions[bot]"
